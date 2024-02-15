@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Service Areas Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+</head>
+<body>
+    <div id="mapid" style="width: 600px; height: 400px;"></div>
+    <form id="cityForm">
+        <input type="text" id="cityInput" placeholder="Add a city" />
+        <button type="submit">Add City</button>
+    </form>
+    <script>
+        // Initially empty array for cities to include
+        let citiesToInclude = []; // Global scope to track selected cities
+        let mymap = L.map('mapid').setView([32.7767, -96.7970], 10); // Initialize the map immediately
+        let geoJSONLayer; // To hold the current GeoJSON layer for easy removal/update
+    
+        // Ensure base tile layer is added immediately after initializing `mymap`
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</contributors>',
+            maxZoom: 18,
+        }).addTo(mymap);
+    
+        // Function to load GeoJSON data
+        async function loadGeoJSON(url) {
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error("Error loading the GeoJSON file:", error);
+                return null;
+            }
+        }
+
+        document.getElementById('cityForm').addEventListener('submit', function(event) {
+            event.preventDefault(); // Prevent the form from submitting in the traditional way
+            const cityInput = document.getElementById('cityInput').value.trim();
+            if (cityInput) {
+                citiesToInclude.push(cityInput); // Add the new city to the array
+                updateMapWithSelectedCities(citiesToInclude); // Refresh the map with the new city list
+                document.getElementById('cityInput').value = ''; // Clear the input field
+            }
+        });
+
+        // Function to filter GeoJSON data by city names
+        function filterGeoJSONByCities(originalGeoJSON, cityNames) {
+            let filteredFeatures = {
+                "type": "FeatureCollection",
+                "features": originalGeoJSON.features.filter(feature => cityNames.includes(feature.properties.CITY_NM))
+            };
+            return filteredFeatures;
+        }
+
+        // Initialize the Leaflet map
+        function initMap() {
+            if (!mymap) { // Only initialize the map if it hasn't been initialized before
+                mymap = L.map('mapid').setView([32.7767, -96.7970], 10);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</contributors>',
+                    maxZoom: 18,
+                }).addTo(mymap);
+            }
+        }
+
+        async function updateMapWithSelectedCities(citiesToInclude) {
+            const geoJSONUrl = "TxDOT_City_Boundaries.geojson";
+            const geoJSONData = await loadGeoJSON(geoJSONUrl);
+            if (geoJSONData) {
+                const filteredGeoJSON = filterGeoJSONByCities(geoJSONData, citiesToInclude);
+                // Check and clear existing GeoJSON layer
+                if (geoJSONLayer) {
+                    mymap.removeLayer(geoJSONLayer);
+                }
+                // Add new GeoJSON layer
+                geoJSONLayer = L.geoJSON(filteredGeoJSON, {
+                    style: () => ({color: "#ff0000"})
+                }).addTo(mymap);
+            }
+        }
+    
+
+        async function main() {
+            updateMapWithSelectedCities(citiesToInclude);
+        }
+
+        main();
+    </script>
+</body>
+</html>
