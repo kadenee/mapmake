@@ -9,20 +9,21 @@
 </head>
 <body>
     <div class="container mt-3">
-        <div class="row">
-            <div class="col-md-8">
-                <div id="mapid" style="width: 100%; height: 400px;"></div>
-            </div>
-            <div class="col-md-4">
-                <h4>Selected Cities</h4>
-                <ul id="cityList" class="list-group mb-3"></ul> <!-- City list container -->
-                <form id="cityForm" class="d-flex">
-                    <input type="text" id="cityInput" class="form-control" placeholder="Add a city">
-                    <button class="btn btn-primary ms-2">Add City</button>
-                </form>
-            </div>
+    <div class="row">
+        <div class="col-lg-8 col-md-12">
+            <div id="mapid" style="width: 100%; height: 400px;"></div>
+        </div>
+        <div class="col-lg-4 col-md-12">
+            <h4>Selected Cities</h4>
+            <ul id="cityList" class="list-group mb-3"></ul> <!-- City list container -->
+            <form id="cityForm" class="d-flex flex-column flex-md-row">
+                <input type="text" id="cityInput" class="form-control me-md-2 mb-2 mb-md-0" placeholder="Add a city">
+                <button class="btn btn-primary">Add City</button>
+            </form>
         </div>
     </div>
+</div>
+
     <script>
         // Initially empty array for cities to include
         let citiesToInclude = []; // Global scope to track selected cities
