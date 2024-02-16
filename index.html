@@ -9,21 +9,27 @@
 </head>
 <body>
     <div class="container mt-3">
-    <div class="row">
-        <div class="col-lg-8 col-md-12">
-            <div id="mapid" style="width: 100%; height: 400px;"></div>
-        </div>
-        <div class="col-lg-4 col-md-12">
-            <h4>Selected Cities</h4>
-            <ul id="cityList" class="list-group mb-3"></ul> <!-- City list container -->
-            <form id="cityForm" class="d-flex flex-column flex-md-row">
-                <input type="text" id="cityInput" class="form-control me-md-2 mb-2 mb-md-0" placeholder="Add a city">
-                <button class="btn btn-primary">Add City</button>
-            </form>
+        <div class="row">
+            <div class="col-lg-8 col-md-12">
+                <div id="mapid" style="width: 100%; height: 400px;"></div>
+            </div>
+            <div class="col-lg-4 col-md-12">
+                <h4>Selected Cities</h4>
+                <ul id="cityList" class="list-group mb-3"></ul> <!-- City list container -->
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" id="serviceStatus">
+                    <label class="form-check-label" for="serviceStatus">Do Not Service</label>
+                </div>
+                <form id="cityForm" class="d-flex flex-column flex-md-row mb-3">
+                    <input type="text" id="cityInput" class="form-control me-md-2 mb-2 mb-md-0" placeholder="Add a city">
+                    <button type="submit" class="btn btn-primary">Add City</button>
+                </form>
+                <button id="hideDoService" class="btn btn-success mb-1">Hide 'Do Service'</button>
+                <button id="hideDoNotService" class="btn btn-danger mb-1">Hide 'Do Not Service'</button>
+            </div>
         </div>
     </div>
-</div>
-
+    
     <script>
         // Initially empty array for cities to include
         let citiesToInclude = []; // Global scope to track selected cities
@@ -47,38 +53,74 @@
                 return null;
             }
         }
-
+        function updateCityList() {
+            const cityList = document.getElementById('cityList');
+            cityList.innerHTML = ''; // Clear existing list items
+            citiesToInclude.forEach(city => {
+                addCityToList(city); // Re-add each city to the list
+            });
+        }
         document.getElementById('cityForm').addEventListener('submit', function(event) {
             event.preventDefault();
             const cityInput = document.getElementById('cityInput').value.trim();
-            if (cityInput && !citiesToInclude.includes(cityInput)) {
-                citiesToInclude.push(cityInput);
-                updateMapWithSelectedCities(citiesToInclude);
+            const serviceStatus = document.getElementById('serviceStatus').checked ? 'Do' : 'Do Not';
+            if (cityInput && !citiesToInclude.some(item => item.name === cityInput)) {
+                const cityData = { name: cityInput, service: serviceStatus, visible: true };
+                citiesToInclude.push(cityData);
+                updateMapWithSelectedCities();
+                addCityToList(cityData);
                 document.getElementById('cityInput').value = '';
-                addCityToList(cityInput); // Add city to the list with a toggle
             }
         });
-        
-        function addCityToList(city) {
-            const listItem = document.createElement('li');
-            listItem.className = 'list-group-item d-flex justify-content-between align-items-center';
-            listItem.textContent = city;
-            const toggleButton = document.createElement('button');
-            toggleButton.className = 'btn btn-outline-secondary btn-sm';
-            toggleButton.textContent = 'Hide';
-            toggleButton.onclick = function() {
-                if (toggleButton.textContent === 'Hide') {
-                    toggleButton.textContent = 'Show';
-                    hideCity(city);
-                } else {
-                    toggleButton.textContent = 'Hide';
-                    showCity(city);
-                }
-            };
-            listItem.appendChild(toggleButton);
-            document.getElementById('cityList').appendChild(listItem);
+
+        function removeFromList(city) {
+            const index = citiesToInclude.indexOf(city);
+            if (index > -1) {
+                citiesToInclude.splice(index, 1);
+                updateMapWithSelectedCities();
+                updateCityList();
+            }
+        }
+
+        function toggleServiceOption(city) {
+            city.service = city.service === 'Do' ? 'Do Not' : 'Do';
+            updateMapWithSelectedCities();
+            updateCityList();
         }
         
+        function addCityToList(cityData) {
+            const listItem = document.createElement('li');
+            listItem.className = `list-group-item d-flex justify-content-between align-items-center`;
+            listItem.textContent = cityData.name;
+            listItem.style.opacity = cityData.visible ? "1" : "0.5"; // Change opacity based on visibility
+            listItem.style.backgroundColor = cityData.service === 'Do' ? '#00ff00' : '#ff0000'; // Change background color based on service status
+        
+            const toggleButton = document.createElement('button');
+            toggleButton.className = 'btn btn-outline-secondary btn-sm';
+            toggleButton.textContent = cityData.visible ? 'Hide' : 'Show';
+            toggleButton.onclick = () => toggleCityVisibility(cityData);
+            
+            const removeButton = document.createElement('button');
+            removeButton.className = 'btn btn-danger btn-sm';
+            removeButton.textContent = 'Remove';
+            removeButton.onclick = () => removeFromList(cityData);
+            
+
+            const serviceButton = document.createElement('button');
+            serviceButton.className = 'btn btn-primary btn-sm';
+            serviceButton.textContent = cityData.service === 'Do' ? 'Do Not Service' : 'Do Service';
+            serviceButton.onclick = () => toggleServiceOption(cityData);
+
+
+            listItem.appendChild(toggleButton);
+            listItem.appendChild(removeButton);
+            listItem.appendChild(serviceButton);
+            document.getElementById('cityList').appendChild(listItem);
+        }
+        function toggleCityVisibility(cityData) {
+            cityData.visible = !cityData.visible; // Toggle visibility
+            updateMapWithSelectedCities();
+        }
         function hideCity(city) {
             const index = citiesToInclude.indexOf(city);
             if (index > -1) {
@@ -112,28 +154,63 @@
             }
         }
 
-        async function updateMapWithSelectedCities(citiesToInclude) {
-            const geoJSONUrl = "TxDOT_City_Boundaries.geojson";
+        async function updateMapWithSelectedCities() {
+            const geoJSONUrl = "TxDOT_City_Boundaries.geojson"; // Use the correct path or URL
             const geoJSONData = await loadGeoJSON(geoJSONUrl);
             if (geoJSONData) {
-                const filteredGeoJSON = filterGeoJSONByCities(geoJSONData, citiesToInclude);
-                // Check and clear existing GeoJSON layer
+                geoJSONData.features = geoJSONData.features.filter(feature => {
+                    const city = citiesToInclude.find(city => city.name === feature.properties.CITY_NM);
+                    return city && city.visible;
+                });
+        
                 if (geoJSONLayer) {
-                    mymap.removeLayer(geoJSONLayer);
+                    mymap.removeLayer(geoJSONLayer); // Remove existing layer
                 }
-                // Add new GeoJSON layer
-                geoJSONLayer = L.geoJSON(filteredGeoJSON, {
-                    style: () => ({color: "#ff0000"})
+                geoJSONLayer = L.geoJSON(geoJSONData, {
+                    style: feature => {
+                        const city = citiesToInclude.find(city => city.name === feature.properties.CITY_NM);
+                        return { color: city.service === 'Do' ? '#00ff00' : '#ff0000' };
+                    }
                 }).addTo(mymap);
             }
         }
-    
-
-        async function main() {
-            updateMapWithSelectedCities(citiesToInclude);
+        document.getElementById('hideDoService').addEventListener('click', function() {
+            const doServiceCities = citiesToInclude.filter(city => city.service === 'Do');
+            const areAllVisible = doServiceCities.every(city => city.visible);
+            // Toggle visibility based on current state
+            doServiceCities.forEach(city => city.visible = !areAllVisible);
+            updateCityList(); // Reflect changes in the UI list
+            updateMapWithSelectedCities(); // Update the map to reflect these changes
+        });
+        
+        document.getElementById('hideDoNotService').addEventListener('click', function() {
+            const doNotServiceCities = citiesToInclude.filter(city => city.service === 'Do Not');
+            const areAllVisible = doNotServiceCities.every(city => city.visible);
+            // Toggle visibility based on current state
+            doNotServiceCities.forEach(city => city.visible = !areAllVisible);
+            updateCityList(); // Reflect changes in the UI list
+            updateMapWithSelectedCities(); // Update the map to reflect these changes
+        });
+        document.getElementById('serviceStatus').addEventListener('change', function() {
+            // This function is triggered whenever the switch is toggled.
+            const serviceStatusLabel = document.querySelector('label[for="serviceStatus"]');
+            if (this.checked) {
+                serviceStatusLabel.textContent = 'Do Service';
+            } else {
+                serviceStatusLabel.textContent = 'Do Not Service';
+            }
+        });
+        
+        async function loadGeoJSON(url) {
+            try {
+                const response = await fetch(url);
+                return await response.json();
+            } catch (error) {
+                console.error("Error loading the GeoJSON file:", error);
+            }
         }
-
-        main();
+        
+        updateMapWithSelectedCities(); 
     </script>
 </body>
 </html>
