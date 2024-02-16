@@ -26,6 +26,8 @@
                 </form>
                 <button id="hideDoService" class="btn btn-success mb-1">Hide 'Do Service'</button>
                 <button id="hideDoNotService" class="btn btn-danger mb-1">Hide 'Do Not Service'</button>
+                <button id="excludeNonServiceAreas" class="btn btn-outline-primary mb-1">Exclude non 'Do Service'</button>
+
             </div>
         </div>
     </div>
@@ -60,19 +62,56 @@
                 addCityToList(city); // Re-add each city to the list
             });
         }
-        document.getElementById('cityForm').addEventListener('submit', function(event) {
+        function capitalizeFirstLetter(string) {
+            return string.charAt(0).toUpperCase() + string.slice(1);
+        }
+        document.getElementById('cityForm').addEventListener('submit', async function(event) {
             event.preventDefault();
-            const cityInput = document.getElementById('cityInput').value.trim();
+            let cityInput = document.getElementById('cityInput').value.trim();
+            cityInput = capitalizeFirstLetter(cityInput); // Capitalize the first letter
+        
+            const geoJSONUrl = "TxDOT_City_Boundaries.geojson"; // Use the correct path or URL
+            const geoJSONData = await loadGeoJSON(geoJSONUrl);
+            const cityExists = geoJSONData.features.some(feature => feature.properties.CITY_NM === cityInput);
+        
+            if (!cityExists) {
+                alert(`City ${cityInput} was not found in the database.`);
+                return;
+            }
+        
             const serviceStatus = document.getElementById('serviceStatus').checked ? 'Do' : 'Do Not';
-            if (cityInput && !citiesToInclude.some(item => item.name === cityInput)) {
+            if (!citiesToInclude.some(item => item.name === cityInput)) {
                 const cityData = { name: cityInput, service: serviceStatus, visible: true };
                 citiesToInclude.push(cityData);
                 updateMapWithSelectedCities();
                 addCityToList(cityData);
-                document.getElementById('cityInput').value = '';
             }
+            document.getElementById('cityInput').value = '';
         });
-
+        document.getElementById('excludeNonServiceAreas').addEventListener('click', function() {
+            // Assuming all areas are initially styled in red by default
+            // First, clear any existing layers to reset the map
+            if (geoJSONLayer) {
+                mymap.removeLayer(geoJSONLayer);
+            }
+        
+            // Load and style the GeoJSON data
+            loadGeoJSON('TxDOT_City_Boundaries.geojson').then(geoJSONData => {
+                // Style all features as non-service by default
+                geoJSONLayer = L.geoJSON(geoJSONData, {
+                    style: () => ({ color: '#ff0000' }) // Default non-service style
+                }).addTo(mymap);
+        
+                // Overlay "Do Service" cities with a different style
+                const doServiceFeatures = geoJSONData.features.filter(feature =>
+                    citiesToInclude.some(city => city.name === feature.properties.CITY_NM && city.service === 'Do' && city.visible)
+                );
+        
+                L.geoJSON({ "type": "FeatureCollection", "features": doServiceFeatures }, {
+                    style: () => ({ color: '#00ff00' }) // "Do Service" style
+                }).addTo(mymap);
+            });
+        });
         function removeFromList(city) {
             const index = citiesToInclude.indexOf(city);
             if (index > -1) {
